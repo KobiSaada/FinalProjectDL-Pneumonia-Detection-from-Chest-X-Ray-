@@ -1,65 +1,43 @@
+import numpy as np
 import os
-import tensorflow as tf
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-
-# Set your dataset directory
-dataset_dir = '../dataset'  # Make sure to update this path
+from tensorflow.keras.preprocessing.image import load_img, img_to_array
+from sklearn.model_selection import train_test_split
 
 
-def load_data(dataset_path, img_size=(224, 224)):
-    """
-    Load and preprocess the dataset.
-    """
-    datagen_train_val = ImageDataGenerator(rescale=1. / 255, validation_split=0.2)
+dataset_dir = '../dataset'
 
-    # Load training data
-    train_generator = datagen_train_val.flow_from_directory(
-        os.path.join(dataset_path, 'train'),  # Corrected path
-        target_size=img_size,
-        batch_size=32,
-        class_mode='binary',
-        subset='training'  # Set as training data
-    )
+def load_dataset(dataset_path, img_size=(224, 224)):
+    X = []
+    y = []
 
-    # Load validation data
-    validation_generator = datagen_train_val.flow_from_directory(
-        os.path.join(dataset_path, 'val'),  # Corrected path to use 'val' directory for validation
-        target_size=img_size,
-        batch_size=32,
-        class_mode='binary',
-        subset='validation'
-        # This line is adjusted to use the validation data correctly. If your 'val' directory isn't meant for splitting like training, remove the 'subset' argument
-    )
+    categories = ['NORMAL', 'PNEUMONIA']
 
-    return train_generator, validation_generator
+    for category in categories:
+        path = os.path.join(dataset_path, category)
+        class_num = categories.index(category)
 
+        for img in os.listdir(path):
+            img_path = os.path.join(path, img)
+            image = load_img(img_path, target_size=img_size)
+            image = img_to_array(image)
+            image = np.expand_dims(image, axis=0)
+            image /= 255.0
 
-def preprocess_test_data(test_data_path, img_size=(224, 224)):
-    """
-    Preprocess the test data.
-    """
-    datagen_test = ImageDataGenerator(rescale=1. / 255)
+            X.append(image[0])
+            y.append(class_num)
 
-    test_generator = datagen_test.flow_from_directory(
-        test_data_path,
-        target_size=img_size,
-        batch_size=32,
-        class_mode='binary'
-    )
+    return np.array(X), np.array(y)
 
-    return test_generator
+def flatten_images(images):
+    return images.reshape(images.shape[0], -1)
 
 
-if __name__ == "__main__":
-    # Make sure these paths are correctly pointing to your dataset directories
-    train_path = os.path.join(dataset_dir, 'train')
-    val_path = os.path.join(dataset_dir, 'val')  # Ensure you have a validation set; if not, adjust accordingly
-    test_path = os.path.join(dataset_dir, 'test')
+if __name__ == '__main__':
 
-    # Load and preprocess the training and validation data
-    train_generator, validation_generator = load_data(dataset_dir)
 
-    # Preprocess the test data
-    test_generator = preprocess_test_data(test_path)
+    # Assuming you have a function to load your dataset
+    X, y = load_dataset(os.path.join(dataset_dir, 'train'))  # Load training data
+    X = flatten_images(X)  # Flatten images
 
-    print("Data preprocessing complete.")
+    # Split data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
