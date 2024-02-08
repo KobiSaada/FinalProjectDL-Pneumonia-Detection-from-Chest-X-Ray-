@@ -1,43 +1,43 @@
-import numpy as np
 import os
-import sys
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
 
-# Ensure the directory of the data_preprocessing script is in the path
-from sklearn.model_selection import train_test_split
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Flatten
+from tensorflow.keras.optimizers import Adam
 
-sys.path.append(os.path.join('..', 'src'))
+# Assuming load_dataset and flatten_images are defined in your data_preprocessing script
+from src.data_preprocessing import load_dataset
 
-from data_preprocessing import load_dataset, flatten_images  # Import the preprocessing functions
 
-dataset_dir = '../dataset'  # Update this path to your dataset
-
-def train_baseline_model(X_train, y_train, X_test, y_test):
+def build_logistic_regression_model(input_shape):
     """
-    Train and evaluate the baseline logistic regression model.
+    Build a logistic regression model using TensorFlow/Keras.
     """
-    print("Training Logistic Regression model...")
-    model = LogisticRegression(max_iter=1000, solver='lbfgs', random_state=42)
-    model.fit(X_train, y_train)
+    model = Sequential([
+        Flatten(input_shape=input_shape),  # Flatten the input images to 1D vectors
+        Dense(1, activation='sigmoid')  # Dense layer with 1 unit for binary classification
+    ])
 
-    # Predict on the test set
-    y_pred = model.predict(X_test)
-
-    # Calculate accuracy
-    accuracy = accuracy_score(y_test, y_pred)
-    print(f"Baseline Model Accuracy: {accuracy * 100:.2f}%")
-
+    model.compile(optimizer=Adam(),
+                  loss='binary_crossentropy',
+                  metrics=['accuracy'])
     return model
 
+
 if __name__ == '__main__':
+    dataset_dir = '../dataset'  # Update this path to your dataset
+
     print("Loading and preprocessing data...")
-    # Load and preprocess the data
-    X, y = load_dataset(os.path.join(dataset_dir, 'train'))  # Adjust path as necessary
-    X = flatten_images(X)
+    X_train, y_train = load_dataset(os.path.join(dataset_dir, 'train'))  # Load training data
+    X_val, y_val = load_dataset(os.path.join(dataset_dir, 'val'))  # Load validation data
 
-    # Split data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # Assuming your images are 224x224 and RGB (3 channels)
+    model = build_logistic_regression_model(input_shape=(224, 224, 3))
 
-    # Train the baseline model
-    model = train_baseline_model(X_train, y_train, X_test, y_test)
+    print("Training Logistic Regression model...")
+    history = model.fit(X_train, y_train, epochs=10, validation_data=(X_val, y_val))
+
+    # Evaluate the model
+    _, accuracy = model.evaluate(X_val, y_val)
+    print(f"Validation Accuracy: {accuracy * 100:.2f}%")
