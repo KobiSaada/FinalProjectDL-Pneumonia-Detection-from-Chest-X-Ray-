@@ -28,16 +28,3 @@ def load_dataset(dataset_path, img_size=(224, 224)):
 
     return np.array(X), np.array(y)
 
-def flatten_images(images):
-    return images.reshape(images.shape[0], -1)
-
-
-if __name__ == '__main__':
-
-
-    # Assuming you have a function to load your dataset
-    X, y = load_dataset(os.path.join(dataset_dir, 'train'))  # Load training data
-    X = flatten_images(X)  # Flatten images
-
-    # Split data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)

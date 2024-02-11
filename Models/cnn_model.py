@@ -1,5 +1,11 @@
+import os
+
+from sklearn.model_selection import train_test_split
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+from src.data_preprocessing import load_dataset  # Adjust the import path as necessary
+dataset_dir = '../dataset'
+
 
 def build_cnn_model(input_shape):
     model = Sequential([
