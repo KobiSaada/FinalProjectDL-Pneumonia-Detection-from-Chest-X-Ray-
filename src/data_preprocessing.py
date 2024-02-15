@@ -1,30 +1,48 @@
-import numpy as np
 import os
-from tensorflow.keras.preprocessing.image import load_img, img_to_array
-from sklearn.model_selection import train_test_split
 
+import tensorflow as tf
+from tensorflow.keras.preprocessing import image_dataset_from_directory
 
-dataset_dir = '../dataset'
+# Define constants
+BATCH_SIZE = 32
+IMAGE_SIZE = (256, 256)
 
-def load_dataset(dataset_path, img_size=(224, 224)):
-    X = []
-    y = []
+EPOCHS = 50
+dataset_dir = '../dataset'  # Update with the correct path to your dataset
 
-    categories = ['NORMAL', 'PNEUMONIA']
+def preprocess_data(dataset_dir, subset_type):
+    """
+    Load and preprocess data from a given subset type ('train', 'val', 'test').
+    """
+    return image_dataset_from_directory(
+        os.path.join(dataset_dir, subset_type),
+        seed=123,
+        shuffle=True,
+        image_size=IMAGE_SIZE,
+        batch_size=BATCH_SIZE,
+        label_mode='binary'  # Assuming binary classification ('NORMAL', 'PNEUMONIA')
+    )
 
-    for category in categories:
-        path = os.path.join(dataset_path, category)
-        class_num = categories.index(category)
+# Loading datasets
+train_dataset = preprocess_data(dataset_dir, 'train')
+val_dataset = preprocess_data(dataset_dir, 'val')
+test_dataset = preprocess_data(dataset_dir, 'test')
 
-        for img in os.listdir(path):
-            img_path = os.path.join(path, img)
-            image = load_img(img_path, target_size=img_size)
-            image = img_to_array(image)
-            image = np.expand_dims(image, axis=0)
-            image /= 255.0
+# Data Normalization (Scaling pixel values to [0, 1])
+normalization_layer = tf.keras.layers.experimental.preprocessing.Rescaling(1./255)
+train_dataset = train_dataset.map(lambda x, y: (normalization_layer(x), y))
+val_dataset = val_dataset.map(lambda x, y: (normalization_layer(x), y))
+test_dataset = test_dataset.map(lambda x, y: (normalization_layer(x), y))
 
-            X.append(image[0])
-            y.append(class_num)
+# Data Augmentation (Optional, for training dataset)
+data_augmentation = tf.keras.Sequential([
+    tf.keras.layers.experimental.preprocessing.RandomFlip("horizontal_and_vertical"),
+    tf.keras.layers.experimental.preprocessing.RandomRotation(0.2),
+])
 
-    return np.array(X), np.array(y)
+train_dataset = train_dataset.map(lambda x, y: (data_augmentation(x, training=True), y))
 
+# Make sure to prefetch the datasets for optimal performance during training and testing
+train_dataset = train_dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
+val_dataset = val_dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
+test_dataset = test_dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
