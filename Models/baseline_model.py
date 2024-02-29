@@ -36,4 +36,5 @@ history = model.fit(train_dataset, epochs=EPOCHS, validation_data=val_dataset)
 
 # Evaluate the model on the test set
 test_loss, test_accuracy = model.evaluate(test_dataset)
+model.summary()
 print(f"Test Accuracy: {test_accuracy * 100:.2f}%")

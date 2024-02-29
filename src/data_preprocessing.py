@@ -1,27 +1,15 @@
 import os
 import tensorflow as tf
 from tensorflow.keras.preprocessing import image_dataset_from_directory
+from tensorflow.keras.applications import resnet50
+
 
 # Define constants
 BATCH_SIZE = 32
 IMAGE_SIZE = (256, 256)
 dataset_dir = '../dataset'  # Update with the correct path to your dataset
 
-def preprocess_data(dataset_dir, subset_type):
-    """
-    Load and preprocess data from a given subset type ('train', 'val', 'test').
-    """
-    dataset = image_dataset_from_directory(
-        os.path.join(dataset_dir, subset_type),
-        seed=123,
-        shuffle=True,
-        image_size=IMAGE_SIZE,
-        batch_size=BATCH_SIZE,
-        label_mode='binary'  # Assuming binary classification ('NORMAL', 'PNEUMONIA')
-    )
-    return dataset.cache()  # Cache the images after loading
-
-# Enhanced Data Augmentation
+# Data Augmentation
 data_augmentation = tf.keras.Sequential([
     tf.keras.layers.RandomFlip("horizontal_and_vertical"),
     tf.keras.layers.RandomRotation(0.2),
@@ -29,19 +17,44 @@ data_augmentation = tf.keras.Sequential([
     tf.keras.layers.RandomContrast(0.1),
 ])
 
-# Custom Preprocessing Function
-def custom_preprocess(image, label):
-    image = data_augmentation(image, training=True)  # Apply data augmentation
-    image = tf.keras.layers.Rescaling(1./255)(image)  # Normalize images
-    return image, label
+# ResNet50 specific preprocessing
+def preprocess_input_with_augmentation(x):
+    x = data_augmentation(x, training=True)  # Apply data augmentation
+    return resnet50.preprocess_input(x)  # Apply ResNet50 preprocessing
 
 # Loading and preprocessing datasets
-train_dataset = preprocess_data(dataset_dir, 'train').map(custom_preprocess, num_parallel_calls=tf.data.AUTOTUNE)
-val_dataset = preprocess_data(dataset_dir, 'val').map(custom_preprocess, num_parallel_calls=tf.data.AUTOTUNE)
-test_dataset = preprocess_data(dataset_dir, 'test').map(custom_preprocess, num_parallel_calls=tf.data.AUTOTUNE)
+def preprocess_data(dataset_dir, subset_type):
+    if subset_type == 'train':
+        dataset = image_dataset_from_directory(
+            os.path.join(dataset_dir, subset_type),
+            seed=123,
+            shuffle=True,
+            image_size=IMAGE_SIZE,
+            batch_size=BATCH_SIZE,
+            label_mode='binary',
+            interpolation='bilinear',
+        )
+        # Apply augmentation only to the training dataset
+        dataset = dataset.map(lambda x, y: (preprocess_input_with_augmentation(x), y),
+                              num_parallel_calls=tf.data.AUTOTUNE)
+    else:
+        # For validation and test sets, just apply ResNet50 preprocessing
+        dataset = image_dataset_from_directory(
+            os.path.join(dataset_dir, subset_type),
+            seed=123,
+            shuffle=True if subset_type == 'val' else False,  # Shuffle only validation set
+            image_size=IMAGE_SIZE,
+            batch_size=BATCH_SIZE,
+            label_mode='binary',
+            interpolation='bilinear',
+        )
+        dataset = dataset.map(lambda x, y: (resnet50.preprocess_input(x), y),
+                              num_parallel_calls=tf.data.AUTOTUNE)
 
-# Prefetching datasets
-train_dataset = train_dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
-val_dataset = val_dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
-test_dataset = test_dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
+    return dataset.cache().prefetch(tf.data.AUTOTUNE)
+
+# Load datasets
+train_dataset = preprocess_data(dataset_dir, 'train')
+val_dataset = preprocess_data(dataset_dir, 'val')  # Assuming 'val' folder exists for validation data
+test_dataset = preprocess_data(dataset_dir, 'test')  # Assuming 'test' folder exists for test data
 
