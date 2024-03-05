@@ -12,7 +12,7 @@ dataset_dir = '../dataset'  # Update with the correct path to your dataset
 # Data Augmentation
 data_augmentation = tf.keras.Sequential([
     tf.keras.layers.RandomFlip("horizontal_and_vertical"),
-    tf.keras.layers.RandomRotation(0.2),
+    tf.keras.layers.RandomRotation(0.1),
     tf.keras.layers.RandomZoom(0.1),
     tf.keras.layers.RandomContrast(0.1),
 ])
