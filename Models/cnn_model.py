@@ -3,19 +3,22 @@ import tensorflow as tf
 from tensorflow.keras import layers, models
 from tensorflow.keras.applications import ResNet50
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import confusion_matrix, classification_report, f1_score, precision_score, recall_score
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.layers.experimental import preprocessing
+
 # If 'preprocess_data' is a custom function you wrote, make sure it's correctly implemented
-# For this example, we'll assume it returns preprocessed and batched datasets
 from src.data_preprocessing import preprocess_data
 
+
 # Constants
-BATCH_SIZE = 32
+
 IMAGE_SIZE = (256, 256)
-EPOCHS = 13  # Adjust based on observed performance
+EPOCHS = 12  # Adjust based on observed performance
 dataset_dir = '../dataset'  # Ensure this path is correctly specified
 
 data_augmentation = tf.keras.Sequential([
@@ -49,7 +52,7 @@ def build_model(input_shape):
 def compile_model(model):
     model.compile(optimizer=Adam(learning_rate=0.0001),
                   loss='binary_crossentropy',
-                  metrics=['accuracy'])
+                  metrics=['accuracy', tf.keras.metrics.Precision(), tf.keras.metrics.Recall()])
     return model
 
 def plot_confusion_matrix(y_true, y_pred, classes, normalize=False, title=None, cmap=plt.cm.Blues):
@@ -134,22 +137,21 @@ history = model.fit(
     callbacks=callbacks
 )
 
-test_loss, test_accuracy = model.evaluate(test_dataset)
-print(f"Test accuracy: {test_accuracy:.2f}")
 
+test_loss, test_accuracy, test_precision, test_recall = model.evaluate(test_dataset)
+print(f"Test accuracy: {test_accuracy:.2f}")
+print(f"Test precision: {test_precision:.2f}")
+print(f"Test recall: {test_recall:.2f}")
 # Display predictions for the test dataset
 display_predictions(test_dataset, model)
 # After model evaluation
-# Assuming binary classification and test_dataset is properly batched
-y_true = [labels.numpy() for _, labels in test_dataset]
-y_pred = [model.predict(images) for images, _ in test_dataset]
+# Generate predictions
+y_true = np.concatenate([labels.numpy() for _, labels in test_dataset])
+y_pred = np.round(np.concatenate([model.predict(images) for images, _ in test_dataset])).astype(int)
 
-# Flatten the lists
-y_true = np.concatenate(y_true).astype(int)
-y_pred = np.round(np.concatenate(y_pred)).astype(int)
-
-# Display Confusion Matrix and calculate F1 Score
+# Plot confusion matrix
 plot_confusion_matrix(y_true, y_pred, classes=['Normal', 'Pneumonia'], normalize=True)
-f1_score = calculate_f1_score(y_true, y_pred)
-print(f"F1 Score: {f1_score:.2f}")
+# Calculate and print F1 score
+f1 = f1_score(y_true, y_pred)
+print(f"F1 Score: {f1:.2f}")
 plt.show()
